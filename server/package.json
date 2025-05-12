@@ -1,0 +1,33 @@
+{
+  "name": "tradertony2.0-server",
+  "version": "1.0.0",
+  "description": "Technical analysis stock trading bot backend",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc -p tsconfig.backend.json",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": [
+    "trading",
+    "bot",
+    "technical-analysis",
+    "nodejs",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/express": "^4.17.21",
+    "@types/sqlite3": "^3.1.11",
+    "express": "^4.19.2",
+    "express-validator": "^7.2.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}

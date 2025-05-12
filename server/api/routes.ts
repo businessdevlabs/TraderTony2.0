@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
-const { body, param, validationResult } = require('express-validator');
-const { getDB } = require('./db');
+import { body, param, validationResult } from 'express-validator';
+import { getDB } from './db';
 import * as sqlite3 from 'sqlite3';
 
-// API endpoint to fetch OHLC data
-exports.getOHLCData = [
+export const getOHLCData = [
   param('timeframe')
     .isIn(['5m', '10m', '1h', '1d', '1w', '1mo'])
     .withMessage('Invalid timeframe specified'),
@@ -29,8 +28,7 @@ exports.getOHLCData = [
   },
 ];
 
-// API endpoint to fetch key levels
-exports.getKeyLevels = (req: Request, res: Response) => {
+export const getKeyLevels = (req: Request, res: Response) => {
   const sql = `SELECT * FROM key_levels ORDER BY price`;
   getDB().all(sql, [], (err: sqlite3.RunResult, rows: any[]) => {
     if (err) {
@@ -42,8 +40,7 @@ exports.getKeyLevels = (req: Request, res: Response) => {
   });
 };
 
-// API endpoint to save key levels
-exports.saveKeyLevels = [
+export const saveKeyLevels = [
   body('levels')
     .isArray()
     .withMessage('levels must be an array')
@@ -94,9 +91,3 @@ exports.saveKeyLevels = [
     });
   },
 ];
-
-module.exports = {
-  getOHLCData,
-  getKeyLevels,
-  saveKeyLevels
-};

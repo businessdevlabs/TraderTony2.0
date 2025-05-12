@@ -40,16 +40,17 @@ module.exports = {
       directory: path.join(__dirname, 'dist'),
     },
     compress: true,
-    port: 8080, // Port for the dev server (frontend)
+    port: 3001, // Port for the dev server (frontend)
     historyApiFallback: true, // Important for single-page applications
-    proxy: {
-        '/api': { // Proxy API requests from frontend dev server to backend
-            target: 'http://localhost:3000', // Backend API server
-            secure: false,
-            changeOrigin: true,
-            pathRewrite: {'^/api' : ''} // if your backend doesn't have /api prefix
-        }
-    }
+    proxy: [
+      {
+        context: ['/api'],
+        target: 'http://localhost:3000',
+        secure: false,
+        changeOrigin: true,
+        pathRewrite: { '^/api': '' }
+      }
+    ]
   },
   devtool: 'inline-source-map', // For better debugging
 };
