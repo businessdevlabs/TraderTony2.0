@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { parse } from 'csv-parse/sync';
+import Papa, { ParseResult } from 'papaparse';
 import type { OHLC } from '../../../server/technical-analysis/transform-data'; // import the type definition only
 
 function parseVolume(vol: string): number {
@@ -9,7 +9,12 @@ function parseVolume(vol: string): number {
 }
 
 function transformCsvToOhlc(csvText: string): OHLC[] {
-  const records = parse(csvText, { columns: true, skip_empty_lines: true, trim: true }) as Record<string, string>[];
+  const results = (Papa.parse as any)(csvText, {
+    header: true,
+    skipEmptyLines: true,
+    trim: true,
+  });
+  const records = results.data as Record<string, string>[];
   return records.map(row => ({
     close: row['Price'],
     high: row['High'],

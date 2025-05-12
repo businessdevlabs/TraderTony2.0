@@ -6,7 +6,7 @@ const App: React.FC = () => {
     <div>
       <h1>TraderTony 2.0</h1>
       <p>This is the main application component csv.</p>
-      {/* <CsvUploader /> */}
+      <CsvUploader />
     </div>
   );
 };
