@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Papa, { ParseResult } from 'papaparse';
 import type { OHLC } from '../../../server/technical-analysis/transform-data'; // import the type definition only
+import { findSupportResistance } from '../utils/technical-analysis';
 
 function parseVolume(vol: string): number {
   if (vol.endsWith('M')) return Math.round(parseFloat(vol) * 1e6);
@@ -38,6 +39,8 @@ export const CsvUploader: React.FC = () => {
     reader.onload = () => {
       const text = reader.result as string;
       const ohlcArray = transformCsvToOhlc(text);
+      const levels = findSupportResistance(ohlcArray, "1d");
+      console.log('levels22', levels)
       setData(ohlcArray);
     };
     reader.readAsText(file);
