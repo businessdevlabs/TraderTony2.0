@@ -66,7 +66,8 @@ function clusterLevels(swings: number[], clusterTolerance: number): number[] {
 }
 
 function calculateStrength(data: OHLC[], levels: number[], config: any): { price: number, strength: number, type: string }[] {
-  return levels.map(price => {
+  // Calculate raw strengths
+  const rawLevels = levels.map(price => {
     let touchCount = 0;
     let totalVolume = 0;
 
@@ -84,6 +85,24 @@ function calculateStrength(data: OHLC[], levels: number[], config: any): { price
 
     return { price, strength, type: levelType };
   });
+
+  // Find min and max strength
+  const strengths = rawLevels.map(l => l.strength);
+  const minStrength = Math.min(...strengths);
+  const maxStrength = Math.max(...strengths);
+
+  // Normalize strengths to 0-100 scale
+  const normalizedLevels = rawLevels.map(l => {
+    let normalizedStrength = 0;
+    if (maxStrength !== minStrength) {
+      normalizedStrength = ((l.strength - minStrength) / (maxStrength - minStrength)) * 100;
+    } else {
+      normalizedStrength = 100; // If all strengths are equal, set to max 100
+    }
+    return { price: l.price, strength: normalizedStrength, type: l.type };
+  });
+
+  return normalizedLevels;
 }
 
 export function findSupportResistance(data: OHLC[], timeFrame: TimeFrame): { price: number, strength: number, type: string }[] {
