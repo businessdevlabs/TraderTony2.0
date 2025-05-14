@@ -102,7 +102,9 @@ function calculateStrength(data: OHLC[], levels: number[], config: any): { price
     return { price: l.price, strength: normalizedStrength, type: l.type };
   });
 
-  return normalizedLevels;
+  // Filter levels with strength more than 65
+  const filteredLevels = normalizedLevels.filter(l => l.strength > 65);
+  return filteredLevels;
 }
 
 export function findSupportResistance(data: OHLC[], timeFrame: TimeFrame): { price: number, strength: number, type: string }[] {
