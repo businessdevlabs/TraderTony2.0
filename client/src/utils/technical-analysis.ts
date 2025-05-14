@@ -26,8 +26,14 @@ function detectSwings(data: OHLC[], swingLookback: number): number[] {
   for (let i = swingLookback; i < data.length - swingLookback; i++) {
     const currentHigh = parseNumber(data[i].high);
     const currentLow = parseNumber(data[i].low);
+    const currentOpen = parseNumber(data[i].open);
+    const currentClose = parseNumber(data[i].close);
     let isSwingHigh = true;
     let isSwingLow = true;
+    let isSwingOpenHigh = true;
+    let isSwingOpenLow = true;
+    let isSwingCloseHigh = true;
+    let isSwingCloseLow = true;
 
     for (let j = 1; j <= swingLookback; j++) {
       if (parseNumber(data[i - j].high) >= currentHigh || parseNumber(data[i + j].high) >= currentHigh) {
@@ -36,10 +42,26 @@ function detectSwings(data: OHLC[], swingLookback: number): number[] {
       if (parseNumber(data[i - j].low) <= currentLow || parseNumber(data[i + j].low) <= currentLow) {
         isSwingLow = false;
       }
+      if (parseNumber(data[i - j].open) >= currentOpen || parseNumber(data[i + j].open) >= currentOpen) {
+        isSwingOpenHigh = false;
+      }
+      if (parseNumber(data[i - j].open) <= currentOpen || parseNumber(data[i + j].open) <= currentOpen) {
+        isSwingOpenLow = false;
+      }
+      if (parseNumber(data[i - j].close) >= currentClose || parseNumber(data[i + j].close) >= currentClose) {
+        isSwingCloseHigh = false;
+      }
+      if (parseNumber(data[i - j].close) <= currentClose || parseNumber(data[i + j].close) <= currentClose) {
+        isSwingCloseLow = false;
+      }
     }
 
     if (isSwingHigh) swings.push(currentHigh);
     if (isSwingLow) swings.push(currentLow);
+    if (isSwingOpenHigh) swings.push(currentOpen);
+    if (isSwingOpenLow) swings.push(currentOpen);
+    if (isSwingCloseHigh) swings.push(currentClose);
+    if (isSwingCloseLow) swings.push(currentClose);
   }
   return swings;
 }
@@ -103,7 +125,7 @@ function calculateStrength(data: OHLC[], levels: number[], config: any): { price
   });
 
   // Filter levels with strength more than 65
-  const filteredLevels = normalizedLevels.filter(l => l.strength > 65);
+  const filteredLevels = normalizedLevels.filter(l => l.strength > 20);
   return filteredLevels;
 }
 
