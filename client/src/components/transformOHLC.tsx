@@ -32,7 +32,7 @@ function transformCsvToOhlc(csvText: string): OHLC[] {
 export const CsvUploader: React.FC = () => {
   const [data, setData] = useState<OHLC[]>([]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -42,10 +42,9 @@ export const CsvUploader: React.FC = () => {
       const levels = findSupportResistance(ohlcArray, "1d");
       console.log('levels22', levels);
 
-      // Call API to save levels
+      // Call API to save levels with explicit backend port
       try {
-        console.log('saving Data');
-        const response = await fetch('/saveKeyLevels', {
+        const response = await fetch('http://localhost:3001/saveKeyLevels', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -59,8 +58,6 @@ export const CsvUploader: React.FC = () => {
             ticker: 'defaultTicker', // Adjust ticker as needed
           }),
         });
-        console.log('saving Data response', response);
-
         if (!response.ok) {
           console.error('Failed to save key levels:', await response.text());
         } else {
