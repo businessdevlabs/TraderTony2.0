@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Papa, { ParseResult } from 'papaparse';
 import type { OHLC } from '../../../server/technical-analysis/transform-data'; // import the type definition only
 import { findSupportResistance } from '../utils/technical-analysis';
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ReferenceLine, Label } from 'recharts';
 
 function parseVolume(vol: string): number {
   if (vol.endsWith('M')) return Math.round(parseFloat(vol) * 1e6);
@@ -43,7 +44,8 @@ export const CsvUploader: React.FC = () => {
           return;
         }
         const levels = await response.json();
-        setKeyLevels(levels);
+        console.log('keyLevels', levels);
+        setKeyLevels(levels.data || []);
       } catch (error) {
         console.error('Error fetching key levels:', error);
       }
@@ -92,9 +94,47 @@ export const CsvUploader: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // Prepare data for chart
+  const chartData = data.map((d, index) => ({
+    x: new Date(d.start_time).getTime(),
+    y: parseFloat(d.close),
+  }));
+
   return (
     <div>
       <input type="file" accept=".csv" onChange={handleFileChange} />
+      <LineChart
+        width={800}
+        height={400}
+        data={chartData}
+        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+      >
+        <XAxis
+          dataKey="x"
+          type="number"
+          domain={['auto', 'auto']}
+          scale="time"
+          tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString()}
+        />
+        <YAxis />
+        <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} />
+        <Legend />
+        {keyLevels.map((level, idx) => (
+          <ReferenceLine
+            key={idx}
+            y={level.price}
+            stroke="red"
+            strokeDasharray="3 3"
+            label={{
+              position: 'right',
+              value: `Strength: ${level.strength}`,
+              fill: 'red',
+              fontSize: 12,
+            }}
+          />
+        ))}
+        <Line type="monotone" dataKey="y" stroke="#8884d8" dot={false} />
+      </LineChart>
       <pre>{JSON.stringify(data, null, 2)}</pre>
       <pre>{JSON.stringify(keyLevels, null, 2)}</pre>
     </div>
