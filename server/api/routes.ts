@@ -28,16 +28,20 @@ export const getOHLCData = [
   },
 ];
 
-export const getKeyLevels = (req: Request, res: Response) => {
+export const getKeyLevels = async (req: Request, res: Response) => {
   const sql = `SELECT * FROM key_levels ORDER BY price`;
-  getDB().all(sql, [], (err: sqlite3.RunResult, rows: any[]) => {
-    if (err) {
-      console.error('Error fetching key levels:', err);
-      res.status(500).send('Error fetching key levels');
-    } else {
-      res.json(rows);
-    }
-  });
+  try {
+    const rows = await new Promise<any[]>((resolve, reject) => {
+      getDB().all(sql, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    res.status(200).json({ data: rows });
+  } catch (err) {
+    console.error('Error fetching key levels:', err);
+    res.status(500).send('Error fetching key levels');
+  }
 };
 
 export const saveKeyLevels = [
@@ -49,45 +53,58 @@ export const saveKeyLevels = [
   body('ticker')
     .notEmpty()
     .withMessage('ticker is required'),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { levels, ticker } = req.body;
+    console.log('Received levels:', levels);
+    console.log('Received ticker:', ticker);
+
     const sql = `INSERT OR REPLACE INTO key_levels (price, ticker, strength, last_date) VALUES (?, ?, ?, ?)`;
 
-    getDB().serialize(() => {
-      getDB().run("BEGIN TRANSACTION");
-      let completed = 0;
-      let errors = 0;
-      levels.forEach((level: any) => {
-        if (!level.price || !level.strength || !level.last_date) {
-          console.warn('Skipping invalid level object:', level);
-          errors++;
-          return;
-        }
-        getDB().run(sql, [level.price, ticker, level.strength, level.last_date], function(err: sqlite3.RunResult) {
-          if (err) {
-            console.error('Error inserting key level:', err);
-            errors++;
-          } else {
-            completed++;
-          }
+    try {
+      await new Promise<void>((resolve, reject) => {
+        getDB().serialize(() => {
+          getDB().run("BEGIN TRANSACTION");
+          let completed = 0;
+          let errors = 0;
+          levels.forEach((level: any) => {
+            if (!level.price || !level.strength || !level.last_date) {
+              console.warn('Skipping invalid level object:', level);
+              errors++;
+              return;
+            }
+            getDB().run(sql, [level.price, ticker, level.strength, level.last_date], function(err: sqlite3.RunResult) {
+              if (err) {
+                console.error('Error inserting key level:', err);
+                errors++;
+              } else {
+                completed++;
+              }
+            });
+          });
+          getDB().run("COMMIT", (err: sqlite3.RunResult) => {
+            if (err) {
+              getDB().run("ROLLBACK"); // Rollback on commit error
+              console.error('Error committing transaction:', err);
+              reject(err);
+            } else if (errors > 0) {
+              console.log(`Completed ${completed} insertions, but ${errors} errors occurred.`);
+              reject(new Error(`Completed ${completed} insertions, but ${errors} errors occurred.`));
+            } else {
+              console.log(`Successfully saved ${completed} key levels.`);
+              resolve();
+            }
+          });
         });
       });
-      getDB().run("COMMIT", (err: sqlite3.RunResult) => {
-        if (err) {
-          getDB().run("ROLLBACK"); // Rollback on commit error
-          console.error('Error committing transaction:', err);
-          return res.status(500).send('Failed to save key levels due to a transaction error.');
-        }
-        if (errors > 0) {
-          return res.status(500).send(`Completed ${completed} insertions, but ${errors} errors occurred.`);
-        }
-        res.status(201).send({ message: `Successfully saved ${completed} key levels.` });
-      });
-    });
+      res.status(201).send({ message: `Successfully saved ${levels.length} key levels.` });
+    } catch (err) {
+      res.status(500).send('Failed to save key levels due to a transaction error.');
+    }
   },
 ];

@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { getOHLCData, getKeyLevels, saveKeyLevels } from './routes';
+import * as routes from './routes';
 
 const app = express();
 const port = 3001;
@@ -15,9 +15,9 @@ app.use(cors({
 app.use(express.json()); // Middleware to parse JSON bodies
 
 // API endpoints
-app.get('/ohlc/:timeframe', getOHLCData);
-app.get('/key-levels', getKeyLevels);
-app.post('/key-levels', saveKeyLevels);
+app.get('/ohlc/:timeframe', routes.getOHLCData);
+app.get('/key-levels', routes.getKeyLevels);
+app.post('/key-levels', routes.saveKeyLevels);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
