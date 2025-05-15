@@ -121,7 +121,11 @@ function calculateStrength(data: OHLC[], levels: number[], config: any): { price
     } else {
       normalizedStrength = 100; // If all strengths are equal, set to max 100
     }
-    return { price: l.price, strength: normalizedStrength, type: l.type };
+    return { 
+      price: Math.round(l.price * 100) / 100, 
+      strength: Math.round(normalizedStrength * 100) / 100, 
+      type: l.type 
+    };
   });
 
   // Filter levels with strength more than 65
