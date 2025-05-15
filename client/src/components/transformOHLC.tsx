@@ -104,8 +104,8 @@ export const CsvUploader: React.FC = () => {
     <div>
       <input type="file" accept=".csv" onChange={handleFileChange} />
       <LineChart
-        width={800}
-        height={400}
+        width={900}
+        height={750}
         data={chartData}
         margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
       >

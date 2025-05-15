@@ -45,11 +45,18 @@ module.exports = {
     historyApiFallback: true, // Important for single-page applications
     proxy: [
       {
-        context: ['/api'],
+        context: ['/key-levels'],
         target: 'http://localhost:3001',
         secure: false,
         changeOrigin: true,
-        pathRewrite: { '^/api': '' }
+        pathRewrite: { '^/key-levels': '/key-levels' }
+      },
+      {
+        context: ['/ohlc'],
+        target: 'http://localhost:3001',
+        secure: false,
+        changeOrigin: true,
+        pathRewrite: { '^/ohlc': '/ohlc' }
       }
     ]
   },
