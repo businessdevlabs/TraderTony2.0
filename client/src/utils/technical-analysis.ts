@@ -129,7 +129,7 @@ function calculateStrength(data: OHLC[], levels: number[], config: any): { price
   });
 
   // Filter levels with strength more than 65
-  const filteredLevels = normalizedLevels.filter(l => l.strength > 50);
+  const filteredLevels = normalizedLevels.filter(l => l.strength > 25);
   return filteredLevels;
 }
 

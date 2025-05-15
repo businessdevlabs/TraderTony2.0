@@ -14,6 +14,7 @@ import {
   OHLCTooltip,
   XAxis,
   YAxis,
+  StraightLine
 } from 'react-financial-charts';
 
 import {
@@ -58,14 +59,14 @@ function transformCsvToOhlc(csvText: string): OHLC[] {
 }
 
 // Define the CandlestickChart component
-function CandlestickChart({ data, width = 800, ratio = 1 }: { data: any[], width?: number, ratio?: number }) {
+function CandlestickChart({ data, keyLevels = [], width = 800, ratio = 1 }: { data: any[], keyLevels?: any[], width?: number, ratio?: number }) {
   const xScaleProvider = discontinuousTimeScaleProvider.inputDateAccessor(
     (d: any) => d.start_time
   );
   const { data: chartData, xScale, xAccessor, displayXAccessor } = xScaleProvider(data);
 
-  const start = xAccessor(chartData[chartData.length - 1]);
-  const end = xAccessor(chartData[Math.max(0, chartData.length - 100)]);
+  const start = xAccessor(chartData[Math.max(0, chartData.length - 100)]);
+  const end = xAccessor(chartData[chartData.length - 1]);
   const xExtents = [start, end];
 
   return (
@@ -85,6 +86,15 @@ function CandlestickChart({ data, width = 800, ratio = 1 }: { data: any[], width
         <XAxis />
         <YAxis />
         <CandlestickSeries />
+        {keyLevels.map((level, idx) => (
+          <StraightLine
+            key={idx}
+            yValue={level.price}
+            lineDash="ShortDash"
+            lineWidth={1}
+            // stroke="blue" // stroke is not a valid prop
+          />
+        ))}
         <MouseCoordinateX
           at="bottom"
           orient="bottom"
@@ -182,12 +192,15 @@ export const CsvUploader: React.FC = () => {
   })) : [];
 
   // Prepare data for candlestick chart with Date objects for start_time and end_time
-  const candlestickChartData = data.length ? data.map(d => ({
-    ...d,
-    start_time: new Date(d.start_time),
-    end_time: new Date(d.end_time),
-  })) : [];
+  const candlestickChartData = data.length ? data
+    .map(d => ({
+      ...d,
+      start_time: new Date(d.start_time),
+      end_time: new Date(d.end_time),
+    }))
+    .reverse() : [];
 
+  console.log('candlestickChartData22', candlestickChartData);
   const toggleChartType = () => {
     setChartType(prev => (prev === 'line' ? 'candlestick' : 'line'));
   };
@@ -232,7 +245,7 @@ export const CsvUploader: React.FC = () => {
           </LineChart>
         </ResponsiveContainer>
       ) : (
-        <CandlestickChart data={candlestickChartData} />
+        <CandlestickChart data={candlestickChartData} keyLevels={keyLevels} />
       )}
       <pre>{JSON.stringify(data, null, 2)}</pre>
       <pre>{JSON.stringify(keyLevels, null, 2)}</pre>
