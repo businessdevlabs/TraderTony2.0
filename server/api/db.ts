@@ -19,6 +19,7 @@ export const getDB = (): sqlite3.Database => {
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               price REAL NOT NULL,
               strength REAL NOT NULL,
+              ticker TEXT NOT NULL,
               last_date TEXT NOT NULL
             );
           `;

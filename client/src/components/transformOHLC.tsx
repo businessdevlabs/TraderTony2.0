@@ -75,6 +75,7 @@ export const CsvUploader: React.FC = () => {
               last_date: new Date().toISOString(),
             })),
             ticker: 'defaultTicker', // Adjust ticker as needed
+            timeframe: '1d', // Add timeframe to match backend requirement
           }),
         });
         if (!response.ok) {

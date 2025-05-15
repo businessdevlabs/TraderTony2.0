@@ -55,6 +55,9 @@ export const saveKeyLevels = [
   body('ticker')
     .notEmpty()
     .withMessage('ticker is required'),
+  body('timeframe')
+    .notEmpty()
+    .withMessage('timeframe is required'),
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -62,11 +65,13 @@ export const saveKeyLevels = [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { levels, ticker } = req.body;
+    const { levels, ticker, timeframe } = req.body;
     console.log('Received levels:', levels);
     console.log('Received ticker:', ticker);
+    console.log('Received timeframe:', timeframe);
 
-    const sql = `INSERT OR REPLACE INTO key_levels (price, ticker, strength, last_date) VALUES (?, ?, ?, ?)`;
+    const tableName = `key_levels_${timeframe}`;
+    const sql = `INSERT OR REPLACE INTO ${tableName} (price, ticker, strength, last_date) VALUES (?, ?, ?, ?)`;
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -106,6 +111,7 @@ export const saveKeyLevels = [
       });
       res.status(201).send({ message: `Successfully saved ${levels.length} key levels.` });
     } catch (err) {
+      console.error('Transaction error:', err);
       res.status(500).send('Failed to save key levels due to a transaction error.');
     }
   },
