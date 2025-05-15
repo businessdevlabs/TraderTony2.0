@@ -36,11 +36,40 @@ export const CsvUploader: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const text = reader.result as string;
       const ohlcArray = transformCsvToOhlc(text);
       const levels = findSupportResistance(ohlcArray, "1d");
-      console.log('levels22', levels)
+      console.log('levels22', levels);
+
+      // Call API to save levels
+      try {
+        console.log('saving Data');
+        const response = await fetch('/saveKeyLevels', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            levels: levels.map(level => ({
+              price: level.price,
+              strength: level.strength,
+              last_date: new Date().toISOString(),
+            })),
+            ticker: 'defaultTicker', // Adjust ticker as needed
+          }),
+        });
+        console.log('saving Data response', response);
+
+        if (!response.ok) {
+          console.error('Failed to save key levels:', await response.text());
+        } else {
+          console.log('Key levels saved successfully');
+        }
+      } catch (error) {
+        console.error('Error saving key levels:', error);
+      }
+
       setData(ohlcArray);
     };
     reader.readAsText(file);

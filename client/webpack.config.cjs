@@ -7,7 +7,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
-    publicPath: '/',
+    publicPath: '/dist/',
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
@@ -41,12 +41,12 @@ module.exports = {
       publicPath: '/',    // ← match the publicPath
     },
     compress: true,
-    port: 3001, // Port for the dev server (frontend)
+    port: 3000, // Port for the dev server (frontend)
     historyApiFallback: true, // Important for single-page applications
     proxy: [
       {
         context: ['/api'],
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3001',
         secure: false,
         changeOrigin: true,
         pathRewrite: { '^/api': '' }
