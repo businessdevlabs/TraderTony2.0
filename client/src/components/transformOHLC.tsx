@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Papa, { ParseResult } from 'papaparse';
 import type { OHLC } from '../../../server/technical-analysis/transform-data'; // import the type definition only
 import { findSupportResistance } from '../utils/technical-analysis';
@@ -31,6 +31,25 @@ function transformCsvToOhlc(csvText: string): OHLC[] {
 
 export const CsvUploader: React.FC = () => {
   const [data, setData] = useState<OHLC[]>([]);
+  const [keyLevels, setKeyLevels] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch key levels on component mount
+    const fetchKeyLevels = async () => {
+      try {
+        const response = await fetch('http://localhost:3001/key-levels');
+        if (!response.ok) {
+          console.error('Failed to fetch key levels:', await response.text());
+          return;
+        }
+        const levels = await response.json();
+        setKeyLevels(levels);
+      } catch (error) {
+        console.error('Error fetching key levels:', error);
+      }
+    };
+    fetchKeyLevels();
+  }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,7 +63,7 @@ export const CsvUploader: React.FC = () => {
 
       // Call API to save levels with explicit backend port
       try {
-        const response = await fetch('http://localhost:3001/saveKeyLevels', {
+        const response = await fetch('http://localhost:3001/key-levels', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -76,6 +95,7 @@ export const CsvUploader: React.FC = () => {
     <div>
       <input type="file" accept=".csv" onChange={handleFileChange} />
       <pre>{JSON.stringify(data, null, 2)}</pre>
+      <pre>{JSON.stringify(keyLevels, null, 2)}</pre>
     </div>
   );
 };
