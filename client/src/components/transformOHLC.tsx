@@ -143,6 +143,10 @@ export const CsvUploader: React.FC = () => {
   const [keyLevels, setKeyLevels] = useState<any[]>([]);
   const [chartType, setChartType] = useState<'line' | 'candlestick'>('line');
 
+  // State for zoom and pan domains
+  const [xDomain, setXDomain] = useState<[number, number] | null>(null);
+  const [yDomain, setYDomain] = useState<[number, number] | null>(null);
+
   useEffect(() => {
     // Fetch key levels on component mount
     const fetchKeyLevels = async () => {
@@ -172,33 +176,15 @@ export const CsvUploader: React.FC = () => {
       const levels = findSupportResistance(ohlcArray, "1d");
       console.log('levels22', levels);
 
-      // Call API to save levels with explicit backend port
-      // try {
-      //   const response = await fetch('http://localhost:3001/key-levels', {
-      //     method: 'POST',
-      //     headers: {
-      //       'Content-Type': 'application/json',
-      //     },
-      //     body: JSON.stringify({
-      //       levels: levels.map(level => ({
-      //         price: level.price,
-      //         strength: level.strength,
-      //         last_date: new Date().toISOString(),
-      //       })),
-      //       ticker: 'defaultTicker', // Adjust ticker as needed
-      //       timeframe: '1d', // Add timeframe to match backend requirement
-      //     }),
-      //   });
-      //   if (!response.ok) {
-      //     console.error('Failed to save key levels:', await response.text());
-      //   } else {
-      //     console.log('Key levels saved successfully');
-      //   }
-      // } catch (error) {
-      //   console.error('Error saving key levels:', error);
-      // }
-
       setData(ohlcArray);
+
+      // Initialize xDomain and yDomain based on data
+      if (ohlcArray.length > 0) {
+        const xValues = ohlcArray.map(d => new Date(d.start_time).getTime());
+        const yValues = ohlcArray.map(d => parseFloat(d.close));
+        setXDomain([Math.min(...xValues), Math.max(...xValues)]);
+        setYDomain([Math.min(...yValues), Math.max(...yValues)]);
+      }
     };
     reader.readAsText(file);
   };
@@ -227,6 +213,74 @@ export const CsvUploader: React.FC = () => {
   // Calculate minimum y value for YAxis domain
   const minY = lineChartData.length > 0 ? Math.min(...lineChartData.map(d => d.y)) : 0;
 
+  // Zoom and pan handlers
+  const handleWheel = (event: React.WheelEvent) => {
+    event.preventDefault();
+    if (!xDomain) return;
+
+    const [minX, maxX] = xDomain;
+    const range = maxX - minX;
+    const zoomFactor = 0.1; // 10% zoom per wheel event
+
+    // Get mouse position relative to chart container
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseXRatio = mouseX / rect.width;
+
+    // Calculate new range based on zoom direction
+    const delta = event.deltaY < 0 ? 1 - zoomFactor : 1 + zoomFactor;
+    const newRange = range * delta;
+
+    // Calculate new min and max keeping mouse position fixed
+    const newMinX = minX + range * mouseXRatio - newRange * mouseXRatio;
+    const newMaxX = newMinX + newRange;
+
+    setXDomain([newMinX, newMaxX]);
+  };
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState<number | null>(null);
+
+  const handleMouseDown = (event: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStartX(event.clientX);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setDragStartX(null);
+  };
+
+  const handleMouseMove = (event: React.MouseEvent) => {
+    if (!isDragging || dragStartX === null || !xDomain) return;
+
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const deltaX = event.clientX - dragStartX;
+    const domainRange = xDomain[1] - xDomain[0];
+    const pixelPerMs = rect.width / domainRange;
+
+    // Calculate how much to shift domain based on drag distance
+    const shiftMs = -deltaX / pixelPerMs;
+
+    let newMinX = xDomain[0] + shiftMs;
+    let newMaxX = xDomain[1] + shiftMs;
+
+    // Clamp to data bounds
+    const dataMinX = Math.min(...lineChartData.map(d => d.x));
+    const dataMaxX = Math.max(...lineChartData.map(d => d.x));
+    if (newMinX < dataMinX) {
+      newMinX = dataMinX;
+      newMaxX = newMinX + domainRange;
+    }
+    if (newMaxX > dataMaxX) {
+      newMaxX = dataMaxX;
+      newMinX = newMaxX - domainRange;
+    }
+
+    setXDomain([newMinX, newMaxX]);
+    setDragStartX(event.clientX);
+  };
+
   return (
     <div>
       <input type="file" accept=".csv" onChange={handleFileChange} />
@@ -234,38 +288,55 @@ export const CsvUploader: React.FC = () => {
         Switch to {chartType === 'line' ? 'Candlestick' : 'Line'} Chart
       </button>
       {chartType === 'line' ? (
-        <ResponsiveContainer width="100%" height={600}>
-          <LineChart
-            data={lineChartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-          >
-            <RechartsXAxis
-              dataKey="x"
-              type="number"
-              domain={['auto', 'auto']}
-              scale="time"
-              tickFormatter={(unixTime: string | number | Date) => new Date(unixTime).toLocaleTimeString()}
-            />
-            <RechartsYAxis domain={[minY, 'auto']} />
-            <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} />
-            <Legend />
-            {keyLevels.map((level, idx) => (
-              <ReferenceLine
-                key={idx}
-                y={level.price}
-                stroke="red"
-                strokeDasharray="3 3"
-                label={{
-                  position: 'right',
-                  value: `${level.strength}`,
-                  fill: 'red',
-                  fontSize: 12,
-                }}
+        <div
+          style={{ width: '100%', height: 600 }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onMouseMove={handleMouseMove}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={lineChartData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+            >
+              <RechartsXAxis
+                dataKey="x"
+                type="number"
+                domain={xDomain || ['auto', 'auto']}
+                scale="time"
+                tickFormatter={(unixTime: string | number | Date) => new Date(unixTime).toLocaleDateString()}
               />
-            ))}
-            <Line type="monotone" dataKey="y" stroke="#8884d8" dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+              <RechartsYAxis domain={[minY, 'auto']} />
+              <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} />
+              <Legend />
+              {keyLevels.map((level, idx) => {
+                const getStrokeColor = (strength: number) => {
+                  if (strength > 80) return 'red';
+                  if (strength >= 60 && strength <= 79.99) return 'blue';
+                  if (strength >= 35 && strength <= 59.99) return 'green';
+                  return 'gray';
+                };
+                return (
+                  <ReferenceLine
+                    key={idx}
+                    y={level.price}
+                    stroke={getStrokeColor(level.strength)}
+                    strokeDasharray="3 3"
+                    label={{
+                      position: 'right',
+                      value: `${level.strength}`,
+                      fill: getStrokeColor(level.strength),
+                      fontSize: 12,
+                    }}
+                  />
+                );
+              })}
+              <Line type="monotone" dataKey="y" stroke="#8884d8" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       ) : (
         <CandlestickChart data={candlestickChartData} keyLevels={keyLevels} />
       )}
