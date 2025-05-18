@@ -196,6 +196,19 @@ export const CsvUploader: React.FC = () => {
     y: parseFloat(d.close),
   })) : [];
 
+  // Store filtered data in state to trigger re-render
+  const [filteredLineChartData, setFilteredLineChartData] = useState(lineChartData);
+
+  useEffect(() => {
+    if (xDomain) {
+      setFilteredLineChartData(
+        lineChartData.filter(d => d.x >= xDomain[0] && d.x <= xDomain[1])
+      );
+    } else {
+      setFilteredLineChartData(lineChartData);
+    }
+  }, [xDomain, lineChartData]);
+
   // Prepare data for candlestick chart with Date objects for start_time and end_time
   const candlestickChartData = data.length ? data
     .map(d => ({
@@ -229,11 +242,30 @@ export const CsvUploader: React.FC = () => {
 
     // Calculate new range based on zoom direction
     const delta = event.deltaY < 0 ? 1 - zoomFactor : 1 + zoomFactor;
-    const newRange = range * delta;
+    let newRange = range * delta;
+
+    // Clamp minimum zoom level to about 3 months in milliseconds (~7.9e9 ms)
+    const minZoomRange = 7.9e9;
+    if (newRange < minZoomRange) {
+      newRange = minZoomRange;
+    }
 
     // Calculate new min and max keeping mouse position fixed
-    const newMinX = minX + range * mouseXRatio - newRange * mouseXRatio;
-    const newMaxX = newMinX + newRange;
+    let newMinX = minX + range * mouseXRatio - newRange * mouseXRatio;
+    let newMaxX = newMinX + newRange;
+
+    // Clamp newMinX and newMaxX to data bounds
+    const dataMinX = Math.min(...lineChartData.map(d => d.x));
+    const dataMaxX = Math.max(...lineChartData.map(d => d.x));
+
+    if (newMinX < dataMinX) {
+      newMinX = dataMinX;
+      newMaxX = newMinX + newRange;
+    }
+    if (newMaxX > dataMaxX) {
+      newMaxX = dataMaxX;
+      newMinX = newMaxX - newRange;
+    }
 
     setXDomain([newMinX, newMaxX]);
   };
@@ -287,6 +319,40 @@ export const CsvUploader: React.FC = () => {
       <button style={{ float: 'right', margin: '10px' }} onClick={toggleChartType}>
         Switch to {chartType === 'line' ? 'Candlestick' : 'Line'} Chart
       </button>
+
+      {/* Date range inputs for zoom */}
+      {chartType === 'line' && xDomain && (
+        <div style={{ margin: '10px 0' }}>
+          <label>
+            Start Date:{' '}
+          <input
+            type="date"
+            value={new Date(xDomain[0]).toISOString().slice(0, 10)}
+            onChange={(e) => {
+              const newStart = new Date(e.target.value).getTime();
+              if (newStart < xDomain[1]) {
+                setXDomain([newStart, xDomain[1]]);
+              }
+            }}
+            key={xDomain[0]} // force re-render on value change
+          />
+          </label>
+          <label style={{ marginLeft: 20 }}>
+            End Date:{' '}
+            <input
+              type="date"
+              value={new Date(xDomain[1]).toISOString().slice(0, 10)}
+              onChange={(e) => {
+                const newEnd = new Date(e.target.value).getTime();
+                if (newEnd > xDomain[0]) {
+                  setXDomain([xDomain[0], newEnd]);
+                }
+              }}
+            />
+          </label>
+        </div>
+      )}
+
       {chartType === 'line' ? (
         <div
           style={{ width: '100%', height: 600 }}
@@ -298,7 +364,7 @@ export const CsvUploader: React.FC = () => {
         >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={lineChartData}
+              data={filteredLineChartData}
               margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
             >
               <RechartsXAxis
@@ -311,14 +377,19 @@ export const CsvUploader: React.FC = () => {
               <RechartsYAxis domain={[minY, 'auto']} />
               <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} />
               <Legend />
-              {keyLevels.map((level, idx) => {
+              {(() => {
+                if (filteredLineChartData.length === 0) return null;
+                const lastPrice = filteredLineChartData[filteredLineChartData.length - 1].y;
+                const lowerBound = lastPrice * 0.8;
+                const upperBound = lastPrice * 1.2;
+                const filteredLevels = keyLevels.filter(level => level.price >= lowerBound && level.price <= upperBound);
                 const getStrokeColor = (strength: number) => {
                   if (strength > 80) return 'red';
                   if (strength >= 60 && strength <= 79.99) return 'blue';
                   if (strength >= 35 && strength <= 59.99) return 'green';
                   return 'gray';
                 };
-                return (
+                return filteredLevels.map((level, idx) => (
                   <ReferenceLine
                     key={idx}
                     y={level.price}
@@ -331,8 +402,8 @@ export const CsvUploader: React.FC = () => {
                       fontSize: 12,
                     }}
                   />
-                );
-              })}
+                ));
+              })()}
               <Line type="monotone" dataKey="y" stroke="#8884d8" dot={false} />
             </LineChart>
           </ResponsiveContainer>
