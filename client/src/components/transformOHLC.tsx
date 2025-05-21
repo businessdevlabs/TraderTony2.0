@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Papa, { ParseResult } from 'papaparse';
 import type { OHLC } from '../../../server/technical-analysis/transform-data'; // import the type definition only
 import { findSupportResistance } from '../utils/technical-analysis';
 import {
-  ChartCanvas,
-  Chart,
-  CandlestickSeries,
   discontinuousTimeScaleProvider,
   CrossHairCursor,
   MouseCoordinateX,
@@ -16,6 +13,8 @@ import {
   YAxis,
   StraightLine
 } from 'react-financial-charts';
+
+import { createChart, CrosshairMode, IChartApi, ISeriesApi, Time, IPriceLine, ColorType, LineSeries, CandlestickSeries } from 'lightweight-charts';
 
 import {
   ResponsiveContainer,
@@ -58,85 +57,85 @@ function transformCsvToOhlc(csvText: string): OHLC[] {
   }));
 }
 
-// Define the CandlestickChart component
 function CandlestickChart({ data, keyLevels = [], width = 1400, ratio = 1 }: { data: any[], keyLevels?: any[], width?: number, ratio?: number }) {
-  const [xExtents, setXExtents] = React.useState<[number, number] | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+const priceLinesRef = useRef<IPriceLine[]>([]);
 
-  const {
-    data: chartData,
-    xScale,
-    xAccessor,
-    displayXAccessor,
-  } = React.useMemo(() => {
-    const xScaleProvider = discontinuousTimeScaleProvider.inputDateAccessor(
-      (d: any) => d.start_time
-    );
-    return xScaleProvider(data);
-  }, [data]);
+useEffect(() => {
+  if (chartContainerRef.current === null) return;
 
-  React.useEffect(() => {
-    if (chartData.length > 0 && !xExtents) {
-      const start = xAccessor(chartData[Math.max(0, chartData.length - 100)]);
-      const end = xAccessor(chartData[chartData.length - 1]);
-      setXExtents([start, end]);
+    if (chartRef.current === null) {
+      chartRef.current = createChart(chartContainerRef.current, {
+        width: width,
+        height: 600,
+        layout: {
+          background: { type: ColorType.Solid, color: '#FFFFFF' },
+          textColor: '#000',
+        },
+        grid: {
+          vertLines: {
+            color: '#eee',
+          },
+          horzLines: {
+            color: '#eee',
+          },
+        },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+        },
+        rightPriceScale: {
+          borderColor: '#ccc',
+        },
+        timeScale: {
+          borderColor: '#ccc',
+        },
+      });
+      // Use addSeries with CandlestickSeries constructor
+      candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries);
     }
-  }, [chartData, xAccessor, xExtents]);
 
-  if (!xExtents) {
-    return null; // or a loading indicator
+  if (candleSeriesRef.current) {
+    candleSeriesRef.current.setData(
+      data.map(d => ({
+        time: Math.floor(new Date(d.start_time).getTime() / 1000) as Time,
+        open: parseFloat(d.open),
+        high: parseFloat(d.high),
+        low: parseFloat(d.low),
+        close: parseFloat(d.close),
+      }))
+    );
   }
 
-  return (
-    <ChartCanvas
-      height={800}
-      width={width}
-      ratio={ratio}
-      margin={{ left: 50, right: 50, top: 10, bottom: 30 }}
-      seriesName="OHLC"
-      data={chartData}
-      xScale={xScale}
-      xAccessor={xAccessor}
-      displayXAccessor={displayXAccessor}
-      xExtents={xExtents}
-      onLoadBefore={(start: number, end: number) => {
-        // Optional: handle loading more data on zoom/pan if needed
-      }}
-    >
-      <Chart id={1} yExtents={(d: any) => [d.high, d.low]}>
-        <XAxis />
-        <YAxis />
-        <CandlestickSeries />
-        {keyLevels.map((level, idx) => (
-          <StraightLine
-            key={idx}
-            yValue={level.price}
-            lineDash="ShortDash"
-            lineWidth={1}
-            // stroke="blue" // stroke is not a valid prop
-          />
-        ))}
-        <MouseCoordinateX
-          at="bottom"
-          orient="bottom"
-          displayFormat={(d: any) => d.toLocaleDateString()}
-        />
-        <MouseCoordinateY
-          at="right"
-          orient="right"
-          displayFormat={(d: any) => d.toFixed(2)}
-        />
-        <EdgeIndicator
-          itemType="last"
-          orient="right"
-          edgeAt="right"
-          yAccessor={(d: any) => d.close}
-          fill={(d: any) => (d.close > d.open ? '#6BA583' : '#FF0000')}
-        />
-        <OHLCTooltip origin={[-40, 0]} />
-      </Chart>
-      <CrossHairCursor />
-    </ChartCanvas>
+  // Remove old price lines
+  priceLinesRef.current.forEach(line => line.applyOptions({ color: 'transparent' }));
+  priceLinesRef.current = [];
+
+  // Add horizontal lines for keyLevels
+  priceLinesRef.current = keyLevels.map(level =>
+    candleSeriesRef.current!.createPriceLine?.({
+      price: level.price,
+      color: 'blue',
+      lineWidth: 1,
+      lineStyle: 2, // dashed
+      axisLabelVisible: true,
+      title: `Level ${level.strength}`,
+    }) as IPriceLine
   );
+
+  return () => {
+    priceLinesRef.current.forEach(line => line.applyOptions({ color: 'transparent' }));
+    priceLinesRef.current = [];
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+    }
+  };
+}, [data, keyLevels, width]);
+
+  return <div ref={chartContainerRef} />;
 }
 
 export const CsvUploader: React.FC = () => {
@@ -174,30 +173,30 @@ export const CsvUploader: React.FC = () => {
       console.log('levels22', levels);
 
       // Call API to save levels with explicit backend port
-      try {
-        const response = await fetch('http://localhost:3001/key-levels', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            levels: levels.map(level => ({
-              price: level.price,
-              strength: level.strength,
-              last_date: new Date().toISOString(),
-            })),
-            ticker: 'defaultTicker', // Adjust ticker as needed
-            timeframe: '1d', // Add timeframe to match backend requirement
-          }),
-        });
-        if (!response.ok) {
-          console.error('Failed to save key levels:', await response.text());
-        } else {
-          console.log('Key levels saved successfully');
-        }
-      } catch (error) {
-        console.error('Error saving key levels:', error);
-      }
+      // try {
+      //   const response = await fetch('http://localhost:3001/key-levels', {
+      //     method: 'POST',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //     },
+      //     body: JSON.stringify({
+      //       levels: levels.map(level => ({
+      //         price: level.price,
+      //         strength: level.strength,
+      //         last_date: new Date().toISOString(),
+      //       })),
+      //       ticker: 'defaultTicker', // Adjust ticker as needed
+      //       timeframe: '1d', // Add timeframe to match backend requirement
+      //     }),
+      //   });
+      //   if (!response.ok) {
+      //     console.error('Failed to save key levels:', await response.text());
+      //   } else {
+      //     console.log('Key levels saved successfully');
+      //   }
+      // } catch (error) {
+      //   console.error('Error saving key levels:', error);
+      // }
 
       setData(ohlcArray);
     };
@@ -225,6 +224,9 @@ export const CsvUploader: React.FC = () => {
     setChartType(prev => (prev === 'line' ? 'candlestick' : 'line'));
   };
 
+  // Calculate minimum y value for YAxis domain
+  const minY = lineChartData.length > 0 ? Math.min(...lineChartData.map(d => d.y)) : 0;
+
   return (
     <div>
       <input type="file" accept=".csv" onChange={handleFileChange} />
@@ -244,7 +246,7 @@ export const CsvUploader: React.FC = () => {
               scale="time"
               tickFormatter={(unixTime: string | number | Date) => new Date(unixTime).toLocaleTimeString()}
             />
-            <RechartsYAxis />
+            <RechartsYAxis domain={[minY, 'auto']} />
             <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} />
             <Legend />
             {keyLevels.map((level, idx) => (
