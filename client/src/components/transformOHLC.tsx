@@ -59,19 +59,36 @@ function transformCsvToOhlc(csvText: string): OHLC[] {
 }
 
 // Define the CandlestickChart component
-function CandlestickChart({ data, keyLevels = [], width = 800, ratio = 1 }: { data: any[], keyLevels?: any[], width?: number, ratio?: number }) {
-  const xScaleProvider = discontinuousTimeScaleProvider.inputDateAccessor(
-    (d: any) => d.start_time
-  );
-  const { data: chartData, xScale, xAccessor, displayXAccessor } = xScaleProvider(data);
+function CandlestickChart({ data, keyLevels = [], width = 1400, ratio = 1 }: { data: any[], keyLevels?: any[], width?: number, ratio?: number }) {
+  const [xExtents, setXExtents] = React.useState<[number, number] | null>(null);
 
-  const start = xAccessor(chartData[Math.max(0, chartData.length - 100)]);
-  const end = xAccessor(chartData[chartData.length - 1]);
-  const xExtents = [start, end];
+  const {
+    data: chartData,
+    xScale,
+    xAccessor,
+    displayXAccessor,
+  } = React.useMemo(() => {
+    const xScaleProvider = discontinuousTimeScaleProvider.inputDateAccessor(
+      (d: any) => d.start_time
+    );
+    return xScaleProvider(data);
+  }, [data]);
+
+  React.useEffect(() => {
+    if (chartData.length > 0 && !xExtents) {
+      const start = xAccessor(chartData[Math.max(0, chartData.length - 100)]);
+      const end = xAccessor(chartData[chartData.length - 1]);
+      setXExtents([start, end]);
+    }
+  }, [chartData, xAccessor, xExtents]);
+
+  if (!xExtents) {
+    return null; // or a loading indicator
+  }
 
   return (
     <ChartCanvas
-      height={400}
+      height={800}
       width={width}
       ratio={ratio}
       margin={{ left: 50, right: 50, top: 10, bottom: 30 }}
@@ -81,6 +98,9 @@ function CandlestickChart({ data, keyLevels = [], width = 800, ratio = 1 }: { da
       xAccessor={xAccessor}
       displayXAccessor={displayXAccessor}
       xExtents={xExtents}
+      onLoadBefore={(start: number, end: number) => {
+        // Optional: handle loading more data on zoom/pan if needed
+      }}
     >
       <Chart id={1} yExtents={(d: any) => [d.high, d.low]}>
         <XAxis />
@@ -212,7 +232,7 @@ export const CsvUploader: React.FC = () => {
         Switch to {chartType === 'line' ? 'Candlestick' : 'Line'} Chart
       </button>
       {chartType === 'line' ? (
-        <ResponsiveContainer width="100%" height={400}>
+        <ResponsiveContainer width="100%" height={600}>
           <LineChart
             data={lineChartData}
             margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
@@ -235,7 +255,7 @@ export const CsvUploader: React.FC = () => {
                 strokeDasharray="3 3"
                 label={{
                   position: 'right',
-                  value: `Strength: ${level.strength}`,
+                  value: `${level.strength}`,
                   fill: 'red',
                   fontSize: 12,
                 }}
