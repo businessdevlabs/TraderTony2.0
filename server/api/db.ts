@@ -22,7 +22,8 @@ export const getDB = (): sqlite3.Database => {
               high REAL NOT NULL,
               low REAL NOT NULL,
               close REAL NOT NULL,
-              volume REAL NOT NULL
+              volume REAL NOT NULL,
+              ticker TEXT NOT NULL
             );
           `;
           db!.run(createTableSQL, (err) => {
@@ -43,7 +44,8 @@ export const getDB = (): sqlite3.Database => {
             high REAL NOT NULL,
             low REAL NOT NULL,
             close REAL NOT NULL,
-            volume REAL NOT NULL
+            volume REAL NOT NULL,
+            ticker TEXT NOT NULL
           );
         `;
         db!.run(ohlc1dTableSQL, (err) => {
