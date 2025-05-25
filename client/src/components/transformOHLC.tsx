@@ -57,11 +57,11 @@ function transformCsvToOhlc(csvText: string): OHLC[] {
   }));
 }
 
-function CandlestickChart({ data, keyLevels = [], width = 1400, ratio = 1 }: { data: any[], keyLevels?: any[], width?: number, ratio?: number }) {
+function CandlestickChart({ data, keyLevels = [], width = 1200, ratio = 1 }: { data: any[], keyLevels?: any[], width?: number, ratio?: number }) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-const priceLinesRef = useRef<IPriceLine[]>([]);
+  const priceLinesRef = useRef<IPriceLine[]>([]);
 
 useEffect(() => {
   if (chartContainerRef.current === null) return;
@@ -141,28 +141,28 @@ useEffect(() => {
 export const CsvUploader: React.FC = () => {
   const [data, setData] = useState<OHLC[]>([]);
   const [keyLevels, setKeyLevels] = useState<any[]>([]);
-  const [chartType, setChartType] = useState<'line' | 'candlestick'>('line');
+  const [chartType, setChartType] = useState<'line' | 'candlestick'>('candlestick');
 
   // State for zoom and pan domains
   const [xDomain, setXDomain] = useState<[number, number] | null>(null);
   const [yDomain, setYDomain] = useState<[number, number] | null>(null);
 
-  useEffect(() => {
-    // Fetch key levels on component mount
-    const fetchKeyLevels = async () => {
-      try {
-        const response = await fetch('http://localhost:3001/key-levels');
-        if (!response.ok) {
-          console.error('Failed to fetch key levels:', await response.text());
-          return;
-        }
-        const levels = await response.json();
-        console.log('keyLevels', levels);
-        setKeyLevels(levels.data || []);
-      } catch (error) {
-        console.error('Error fetching key levels:', error);
+  const fetchKeyLevels = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/key-levels');
+      if (!response.ok) {
+        console.error('Failed to fetch key levels:', await response.text());
+        return;
       }
-    };
+      const levels = await response.json();
+      console.log('keyLevels', levels);
+      setKeyLevels(levels.data || []);
+    } catch (error) {
+      console.error('Error fetching key levels:', error);
+    }
+  };
+
+  useEffect(() => {
     fetchKeyLevels();
   }, []);
 
@@ -225,50 +225,6 @@ export const CsvUploader: React.FC = () => {
 
   // Calculate minimum y value for YAxis domain
   const minY = lineChartData.length > 0 ? Math.min(...lineChartData.map(d => d.y)) : 0;
-
-  // Zoom and pan handlers
-  const handleWheel = (event: React.WheelEvent) => {
-    event.preventDefault();
-    if (!xDomain) return;
-
-    const [minX, maxX] = xDomain;
-    const range = maxX - minX;
-    const zoomFactor = 0.1; // 10% zoom per wheel event
-
-    // Get mouse position relative to chart container
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const mouseX = event.clientX - rect.left;
-    const mouseXRatio = mouseX / rect.width;
-
-    // Calculate new range based on zoom direction
-    const delta = event.deltaY < 0 ? 1 - zoomFactor : 1 + zoomFactor;
-    let newRange = range * delta;
-
-    // Clamp minimum zoom level to about 3 months in milliseconds (~7.9e9 ms)
-    const minZoomRange = 7.9e9;
-    if (newRange < minZoomRange) {
-      newRange = minZoomRange;
-    }
-
-    // Calculate new min and max keeping mouse position fixed
-    let newMinX = minX + range * mouseXRatio - newRange * mouseXRatio;
-    let newMaxX = newMinX + newRange;
-
-    // Clamp newMinX and newMaxX to data bounds
-    const dataMinX = Math.min(...lineChartData.map(d => d.x));
-    const dataMaxX = Math.max(...lineChartData.map(d => d.x));
-
-    if (newMinX < dataMinX) {
-      newMinX = dataMinX;
-      newMaxX = newMinX + newRange;
-    }
-    if (newMaxX > dataMaxX) {
-      newMaxX = dataMaxX;
-      newMinX = newMaxX - newRange;
-    }
-
-    setXDomain([newMinX, newMaxX]);
-  };
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState<number | null>(null);
@@ -356,7 +312,6 @@ export const CsvUploader: React.FC = () => {
       {chartType === 'line' ? (
         <div
           style={{ width: '100%', height: 600 }}
-          onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}

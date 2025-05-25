@@ -11,16 +11,18 @@ export const getDB = (): sqlite3.Database => {
         console.log('Connected to the SQLite database.');
 
         // Create tables for key levels for each timeframe
-        const timeframes = ['5m', '10m', '1h', '1d'];
+        const timeframes = ['1m', '5m', '1h', '1d'];
         timeframes.forEach(tf => {
-          const tableName = `key_levels_${tf}`;
+          const tableName = `ohlc_${tf}`;
           const createTableSQL = `
             CREATE TABLE IF NOT EXISTS ${tableName} (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
-              price REAL NOT NULL,
-              strength REAL NOT NULL,
-              ticker TEXT NOT NULL,
-              last_date TEXT NOT NULL
+              timestamp INTEGER NOT NULL,
+              open REAL NOT NULL,
+              high REAL NOT NULL,
+              low REAL NOT NULL,
+              close REAL NOT NULL,
+              volume REAL NOT NULL
             );
           `;
           db!.run(createTableSQL, (err) => {
@@ -30,6 +32,26 @@ export const getDB = (): sqlite3.Database => {
               console.log(`Table ${tableName} is ready.`);
             }
           });
+        });
+
+        // Create ohlc_1d table if not exists
+        const ohlc1dTableSQL = `
+          CREATE TABLE IF NOT EXISTS ohlc_1d (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER NOT NULL,
+            open REAL NOT NULL,
+            high REAL NOT NULL,
+            low REAL NOT NULL,
+            close REAL NOT NULL,
+            volume REAL NOT NULL
+          );
+        `;
+        db!.run(ohlc1dTableSQL, (err) => {
+          if (err) {
+            console.error('Error creating table ohlc_1d:', err);
+          } else {
+            console.log('Table ohlc_1d is ready.');
+          }
         });
       }
     });

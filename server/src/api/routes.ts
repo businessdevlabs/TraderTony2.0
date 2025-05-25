@@ -28,6 +28,82 @@ export const getOHLCData = [
   },
 ];
 
+// New route handlers for ohlc_1d table
+export const getOHLC1dData = async (req: Request, res: Response) => {
+  const sql = `SELECT * FROM ohlc_1d ORDER BY timestamp DESC LIMIT 200`;
+  try {
+    const rows = await new Promise<any[]>((resolve, reject) => {
+      getDB().all(sql, [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error fetching OHLC 1d data:', err);
+    res.status(500).send('Error fetching OHLC 1d data');
+  }
+};
+
+export const saveOHLC1dData = [
+  body('data')
+    .isArray()
+    .withMessage('data must be an array')
+    .custom((data: any[]) => data.length > 0)
+    .withMessage('data array must not be empty'),
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { data } = req.body;
+    const sql = `INSERT OR REPLACE INTO ohlc_1d (timestamp, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?)`;
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        getDB().serialize(() => {
+          getDB().run("BEGIN TRANSACTION");
+          let completed = 0;
+          let errors = 0;
+          data.forEach((entry: any) => {
+            if (!entry.timestamp || !entry.open || !entry.high || !entry.low || !entry.close || !entry.volume) {
+              console.warn('Skipping invalid OHLC entry:', entry);
+              errors++;
+              return;
+            }
+            getDB().run(sql, [entry.timestamp, entry.open, entry.high, entry.low, entry.close, entry.volume], function(err: sqlite3.RunResult) {
+              if (err) {
+                console.error('Error inserting OHLC entry:', err);
+                errors++;
+              } else {
+                completed++;
+              }
+            });
+          });
+          getDB().run("COMMIT", (err: sqlite3.RunResult) => {
+            if (err) {
+              getDB().run("ROLLBACK"); // Rollback on commit error
+              console.error('Error committing transaction:', err);
+              reject(err);
+            } else if (errors > 0) {
+              console.log(`Completed ${completed} insertions, but ${errors} errors occurred.`);
+              reject(new Error(`Completed ${completed} insertions, but ${errors} errors occurred.`));
+            } else {
+              console.log(`Successfully saved ${completed} OHLC entries.`);
+              resolve();
+            }
+          });
+        });
+      });
+      res.status(201).send({ message: `Successfully saved ${data.length} OHLC entries.` });
+    } catch (err) {
+      res.status(500).send('Failed to save OHLC data due to a transaction error.');
+    }
+  },
+];
+
 export const getKeyLevels = async (req: Request, res: Response) => {
   const timeframe = req.query.timeframe as string || '1d';
   const tableName = `key_levels_${timeframe}`;
