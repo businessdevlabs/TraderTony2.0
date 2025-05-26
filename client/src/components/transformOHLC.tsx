@@ -71,7 +71,7 @@ async function getApi1minOhlcData(symbol: string, interval: string, month: strin
     return filteredData;
   } catch (error) {
     console.error('Error fetching 1min OHLC data:', error);
-    throw error;
+    // throw error;
   }
 }
 
@@ -206,9 +206,9 @@ export const CsvUploader: React.FC = () => {
 
   useEffect(() => {
     fetchKeyLevels();
-    getApi1minOhlcData(ticker, '1min', '2024-12', 'GKTD2EKOGISZQASL').then(async (ohlcData) => {
+    getApi1minOhlcData(ticker, '1min', '2024-12', 'T01W9AUCEIOTSDPU').then(async (ohlcData) => {
       // Prepare data for POST request
-      const postData = ohlcData.map((d: any) => ({
+      const postData = ohlcData?.map((d: any) => ({
         timestamp: Math.floor(new Date(d.datetime).getTime() / 1000),
         open: d.open,
         high: d.high,
