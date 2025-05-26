@@ -28,9 +28,9 @@ export const getOHLCData = [
   },
 ];
 
-// New route handlers for ohlc_1d table
-export const getOHLC1dData = async (req: Request, res: Response) => {
-  const sql = `SELECT * FROM ohlc_1d ORDER BY timestamp DESC LIMIT 200`;
+// New route handlers for ohlc_1m table
+export const getOHLC1mData = async (req: Request, res: Response) => {
+  const sql = `SELECT * FROM ohlc_1m ORDER BY timestamp DESC LIMIT 200`;
   try {
     const rows = await new Promise<any[]>((resolve, reject) => {
       getDB().all(sql, [], (err, rows) => {
@@ -40,12 +40,12 @@ export const getOHLC1dData = async (req: Request, res: Response) => {
     });
     res.status(200).json(rows);
   } catch (err) {
-    console.error('Error fetching OHLC 1d data:', err);
-    res.status(500).send('Error fetching OHLC 1d data');
+    console.error('Error fetching OHLC 1m data:', err);
+    res.status(500).send('Error fetching OHLC 1m data');
   }
 };
 
-export const saveOHLC1dData = [
+export const saveOHLC1mData = [
   body('data')
     .isArray()
     .withMessage('data must be an array')
@@ -59,7 +59,7 @@ export const saveOHLC1dData = [
     }
 
     const { data } = req.body;
-    const sql = `INSERT OR REPLACE INTO ohlc_1d (timestamp, open, high, low, close, volume) VALUES (?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT OR REPLACE INTO ohlc_1m (timestamp, open, high, low, close, volume, ticker) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -68,12 +68,12 @@ export const saveOHLC1dData = [
           let completed = 0;
           let errors = 0;
           data.forEach((entry: any) => {
-            if (!entry.timestamp || !entry.open || !entry.high || !entry.low || !entry.close || !entry.volume) {
+            if (!entry.timestamp || !entry.open || !entry.high || !entry.low || !entry.close || !entry.volume || !entry.ticker) {
               console.warn('Skipping invalid OHLC entry:', entry);
               errors++;
               return;
             }
-            getDB().run(sql, [entry.timestamp, entry.open, entry.high, entry.low, entry.close, entry.volume], function(err: sqlite3.RunResult) {
+            getDB().run(sql, [entry.timestamp, entry.open, entry.high, entry.low, entry.close, entry.volume, entry.ticker], function(err: sqlite3.RunResult) {
               if (err) {
                 console.error('Error inserting OHLC entry:', err);
                 errors++;

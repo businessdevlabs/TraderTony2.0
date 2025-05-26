@@ -19,9 +19,9 @@ app.get('/ohlc/:timeframe', routes.getOHLCData);
 app.get('/key-levels', routes.getKeyLevels);
 app.post('/key-levels', routes.saveKeyLevels);
 
-// New endpoints for OHLC 1d data
-app.get('/ohlc_1d', routes.getOHLC1dData);
-app.post('/ohlc_1d', routes.saveOHLC1dData);
+// New endpoints for OHLC 1m data
+app.get('/ohlc_1m', routes.getOHLC1mData);
+app.post('/ohlc_1m', routes.saveOHLC1mData);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
