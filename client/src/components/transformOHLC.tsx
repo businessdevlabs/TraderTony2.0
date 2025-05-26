@@ -37,8 +37,8 @@ function parseVolume(vol: string): number {
 }
 
 // Fetch 1-minute OHLC data for a given symbol, interval, and month from Alpha Vantage API
-async function get1minOhlcData(symbol: string, interval: string, month: string, apiKey: string): Promise<any> {
-  const url = `https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&outputsize=full&apikey=${encodeURIComponent(apiKey)}`;
+async function getApi1minOhlcData(symbol: string, interval: string, month: string, apiKey: string): Promise<any> {
+  const url = `https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&month=${month}&outputsize=full&apikey=${encodeURIComponent(apiKey)}`;
   try {
     const response = await fetch(url);
     if (!response.ok) {
@@ -202,9 +202,40 @@ export const CsvUploader: React.FC = () => {
     }
   };
 
+  const ticker = 'AAPL';
+
   useEffect(() => {
     fetchKeyLevels();
-    get1minOhlcData('AAPL', '1min', '2024-12', 'GKTD2EKOGISZQASL');
+    getApi1minOhlcData(ticker, '1min', '2024-12', 'GKTD2EKOGISZQASL').then(async (ohlcData) => {
+      // Prepare data for POST request
+      const postData = ohlcData.map((d: any) => ({
+        timestamp: Math.floor(new Date(d.datetime).getTime() / 1000),
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+        volume: d.volume,
+        ticker: ticker, // Adjust as needed or make dynamic
+      }));
+
+      try {
+        const response = await fetch('http://localhost:3001/ohlc_1m', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ data: postData }),
+        });
+        if (!response.ok) {
+          console.error('Failed to save 1min OHLC data:', await response.text());
+        } else {
+          console.log('1min OHLC data saved successfully');
+        }
+      } catch (error) {
+        console.error('Error saving 1min OHLC data:', error);
+      }
+    });
+
   }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
