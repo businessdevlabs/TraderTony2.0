@@ -12,7 +12,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json()); // Middleware to parse JSON bodies
+app.use(express.json({ limit: '50mb' })); // Increase JSON body size limit to 50mb
 
 // API endpoints
 app.get('/ohlc/:timeframe', routes.getOHLCData);
