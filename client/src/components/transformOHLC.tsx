@@ -36,6 +36,45 @@ function parseVolume(vol: string): number {
   return parseInt(vol.replace(/,/g, ''), 10);
 }
 
+// Fetch 1-minute OHLC data for a given symbol, interval, and month from Alpha Vantage API
+async function get1minOhlcData(symbol: string, interval: string, month: string, apiKey: string): Promise<any> {
+  const url = `https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&outputsize=full&apikey=${encodeURIComponent(apiKey)}`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch data: ${response.statusText}`);
+    }
+    const data = await response.json();
+    const timeSeriesKey = `Time Series (${interval})`;
+    const timeSeries = data[timeSeriesKey];
+    if (!timeSeries) {
+      throw new Error('Invalid data format from API');
+    }
+
+    console.log('data2121', data);
+    // Filter data for the specified month (YYYY-MM)
+    const filteredData = Object.entries(timeSeries)
+      // .filter(([datetime]) => datetime.startsWith(month))
+    .map(([datetime, values]) => {
+      const v = values as Record<string, string>;
+      return {
+        datetime,
+        open: parseFloat(v['1. open']),
+        high: parseFloat(v['2. high']),
+        low: parseFloat(v['3. low']),
+        close: parseFloat(v['4. close']),
+        volume: parseInt(v['5. volume'], 10),
+      };
+    });
+    console.log('data2121Filtered', filteredData);
+
+    return filteredData;
+  } catch (error) {
+    console.error('Error fetching 1min OHLC data:', error);
+    throw error;
+  }
+}
+
 // Transform CSV data to OHLC format
 function transformCsvToOhlc(csvText: string): OHLC[] {
   const results = (Papa.parse as any)(csvText, {
@@ -63,77 +102,78 @@ function CandlestickChart({ data, keyLevels = [], width = 1200, ratio = 1 }: { d
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
 
-useEffect(() => {
-  if (chartContainerRef.current === null) return;
+// useEffect(() => {
+//   if (chartContainerRef.current === null) return;
 
-    if (chartRef.current === null) {
-      chartRef.current = createChart(chartContainerRef.current, {
-        width: width,
-        height: 600,
-        layout: {
-          background: { type: ColorType.Solid, color: '#FFFFFF' },
-          textColor: '#000',
-        },
-        grid: {
-          vertLines: {
-            color: '#eee',
-          },
-          horzLines: {
-            color: '#eee',
-          },
-        },
-        crosshair: {
-          mode: CrosshairMode.Normal,
-        },
-        rightPriceScale: {
-          borderColor: '#ccc',
-        },
-        timeScale: {
-          borderColor: '#ccc',
-        },
-      });
-      // Use addSeries with CandlestickSeries constructor
-      candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries);
-    }
+//     if (chartRef.current === null) {
+//       chartRef.current = createChart(chartContainerRef.current, {
+//         width: width,
+//         height: 600,
+//         layout: {
+//           background: { type: ColorType.Solid, color: '#FFFFFF' },
+//           textColor: '#000',
+//         },
+//         grid: {
+//           vertLines: {
+//             color: '#eee',
+//           },
+//           horzLines: {
+//             color: '#eee',
+//           },
+//         },
+//         crosshair: {
+//           mode: CrosshairMode.Normal,
+//         },
+//         rightPriceScale: {
+//           borderColor: '#ccc',
+//         },
+//         timeScale: {
+//           borderColor: '#ccc',
+//         },
+//       });
+//       // Use addSeries with CandlestickSeries constructor
+//       candleSeriesRef.current = chartRef.current.addSeries(CandlestickSeries);
+//     }
 
-  if (candleSeriesRef.current) {
-    candleSeriesRef.current.setData(
-      data.map(d => ({
-        time: Math.floor(new Date(d.start_time).getTime() / 1000) as Time,
-        open: parseFloat(d.open),
-        high: parseFloat(d.high),
-        low: parseFloat(d.low),
-        close: parseFloat(d.close),
-      }))
-    );
-  }
+//   if (candleSeriesRef.current) {
+//     candleSeriesRef.current.setData(
+//       data.map(d => ({
+//         time: Math.floor(new Date(d.start_time).getTime() / 1000) as Time,
+//         open: parseFloat(d.open),
+//         high: parseFloat(d.high),
+//         low: parseFloat(d.low),
+//         close: parseFloat(d.close),
+//       }))
+//     );
+//   }
 
-  // Remove old price lines
-  priceLinesRef.current.forEach(line => line.applyOptions({ color: 'transparent' }));
-  priceLinesRef.current = [];
+//   // Remove old price lines
+//   priceLinesRef.current.forEach(line => line.applyOptions({ color: 'transparent' }));
+//   priceLinesRef.current = [];
 
-  // Add horizontal lines for keyLevels
-  priceLinesRef.current = keyLevels.map(level =>
-    candleSeriesRef.current!.createPriceLine?.({
-      price: level.price,
-      color: 'blue',
-      lineWidth: 1,
-      lineStyle: 2, // dashed
-      axisLabelVisible: true,
-      title: `Level ${level.strength}`,
-    }) as IPriceLine
-  );
+//   // Add horizontal lines for keyLevels
+//   priceLinesRef.current = keyLevels.map(level =>
+//     candleSeriesRef.current!.createPriceLine?.({
+//       price: level.price,
+//       color: 'blue',
+//       lineWidth: 1,
+//       lineStyle: 2, // dashed
+//       axisLabelVisible: true,
+//       title: `Level ${level.strength}`,
+//     }) as IPriceLine
+//   );
 
-  return () => {
-    priceLinesRef.current.forEach(line => line.applyOptions({ color: 'transparent' }));
-    priceLinesRef.current = [];
-    if (chartRef.current) {
-      chartRef.current.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-    }
-  };
-}, [data, keyLevels, width]);
+//   return () => {
+//     priceLinesRef.current.forEach(line => line.applyOptions({ color: 'transparent' }));
+//     priceLinesRef.current = [];
+//     if (chartRef.current) {
+//       chartRef.current.remove();
+//       chartRef.current = null;
+//       candleSeriesRef.current = null;
+//     }
+//   };
+
+// }, [data, keyLevels, width]);
 
   return <div ref={chartContainerRef} />;
 }
@@ -164,6 +204,7 @@ export const CsvUploader: React.FC = () => {
 
   useEffect(() => {
     fetchKeyLevels();
+    get1minOhlcData('AAPL', '1min', '2024-12', 'GKTD2EKOGISZQASL');
   }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -199,15 +240,15 @@ export const CsvUploader: React.FC = () => {
   // Store filtered data in state to trigger re-render
   const [filteredLineChartData, setFilteredLineChartData] = useState(lineChartData);
 
-  useEffect(() => {
-    if (xDomain) {
-      setFilteredLineChartData(
-        lineChartData.filter(d => d.x >= xDomain[0] && d.x <= xDomain[1])
-      );
-    } else {
-      setFilteredLineChartData(lineChartData);
-    }
-  }, [xDomain, lineChartData]);
+  // useEffect(() => {
+  //   if (xDomain) {
+  //     setFilteredLineChartData(
+  //       lineChartData.filter(d => d.x >= xDomain[0] && d.x <= xDomain[1])
+  //     );
+  //   } else {
+  //     setFilteredLineChartData(lineChartData);
+  //   }
+  // }, [xDomain, lineChartData]);
 
   // Prepare data for candlestick chart with Date objects for start_time and end_time
   const candlestickChartData = data.length ? data
